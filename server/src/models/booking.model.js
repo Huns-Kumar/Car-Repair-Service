@@ -13,8 +13,7 @@ const bookingSchema = new mongoose.Schema({
   shopAddress: { type: mongoose.Schema.Types.ObjectId, ref: 'Address', required: true }, // Reference to shop's address
   payment: { type: mongoose.Schema.Types.ObjectId, ref: 'Payment' }, // Reference to payment details
   appointmentDate: { type: Date, required: true },
-  createdAt: { type: Date, default: Date.now },
   notes: { type: String }
-});
+}, {timestamps: true});
 
 export const Booking = mongoose.model('Booking', bookingSchema)

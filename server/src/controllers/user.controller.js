@@ -3,7 +3,6 @@ import { ApiError } from '../utils/apiError.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { deleteFromCloudinary, uploadOnCloudinary } from '../utils/cloudinary.js';
 
-import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 
 import { User } from '../models/user.model.js'
@@ -100,7 +99,7 @@ const loginUser = asyncHandler(async (req, res) => {
         throw new ApiError(400, "All fields are required")
     }
 
-    const user = await User.findOne( { email } )
+    const user = await User.findOne({ email })
 
     if (!user) {
         throw new ApiError(404, "User does not exist")
@@ -204,45 +203,105 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
 })
 
-// const changeCurrentPassword = asyncHandler(async (req, res) => {
-//     const { oldPassword, newPassword } = req.body
-//     console.log(oldPassword, newPassword)
+const getCurrentUserProfile = asyncHandler(async (req, res) => {
+    return res.status(200).json(new ApiResponse(200, req.user, "Current User fetched successfully"))
+})
 
-//     const user = await User.findById(req.user?._id)
+const changeCurrentPassword = asyncHandler(async (req, res) => {
+    const { oldPassword, newPassword } = req.body
+    console.log("old and new password in changeCurrentPassword: ", oldPassword, newPassword)
 
-//     const isPasswordValid = await user.isPasswordCorrect(oldPassword)
+    if (
+        [oldPassword, newPassword].some((field) => field?.trim() === "")
+    ) {
+        throw new ApiError(400, "Current and new password is required")
+    }
 
-//     if (!isPasswordValid) {
-//         throw new ApiError(400, "Invalid Password")
-//     }
+    const user = await User.findById(req.user?._id)
 
-//     user.password = newPassword
-//     await user.save({ validateBeforeSave: false })
+    if (!user) {
+        throw new ApiError(400, "Unauthorized Request")
+    }
 
-//     return res.status(200).json(new ApiResponse(200, {}, "Password Changed Successfully"))
-// })
+    const isPasswordValid = await user.isPasswordCorrect(oldPassword)
 
-// const getCurrentUser = asyncHandler(async (req, res) => {
-//     return res.status(200).json(new ApiResponse(200, req.user, "Current User fetched successfully"))
-// })
+    if (!isPasswordValid) {
+        throw new ApiError(400, "Invalid Password")
+    }
 
-// const updateAccountDetails = asyncHandler(async (req, res) => {
-//     const { fullname, email } = req.body
-//     console.log(fullname, email)
+    user.password = newPassword
+    await user.save({ validateBeforeSave: false })
 
-//     if (!fullname || !email) {
-//         throw new ApiError(400, "All fields are required")
-//     }
+    return res.status(200).json(new ApiResponse(200, {}, "Password Changed Successfully"))
+})
 
-//     const user = await User.findByIdAndUpdate(
-//         req.user?._id,
-//         {
-//             $set: { fullname, email }
-//         },
-//         { new: true }
-//     ).select("-password")
+const updateUserProfile = asyncHandler(async (req, res) => {
+    const userId = req.user._id;
 
-//     return res.status(200).json(new ApiResponse(200, user, "User details updated successfully"))
-// })
+    let user = await User.findById(userId);
+    if (!user) {
+        throw new ApiError(401, "Unauthorized Request")
+    }
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken } 
+    const { name, email, username, phone } = req.body;
+
+    if (name !== undefined && name !== '') {
+        user.name = name;
+    }
+
+    if (email !== undefined && email !== '') {
+        user.email = email;
+    }
+
+    if (username !== undefined && username !== '') {
+        user.username = username;
+    }
+
+    if (phone !== undefined && phone !== '') {
+        user.phone = phone;
+    }
+
+    const updatedUser = await user.save();
+
+    return res.status(201).json(
+        new ApiResponse(200, { user: updatedUser }, "User details Updated Successfully")
+    )
+
+});
+
+const updateUserProfilePicture = asyncHandler(async (req, res) => {
+    const imageLocalPath = req.file?.path
+    const oldImage = req.user?.image
+
+    if (!imageLocalPath) {
+        throw new ApiError(400, "image file is required")
+    }
+
+    const image = await uploadOnCloudinary(imageLocalPath)
+
+    if (!image.url) {
+        throw new ApiError(400, "Error while uploading image at cloudinary")
+    }
+
+    const user = await User.findByIdAndUpdate(req.user?._id, {
+        $set: {
+            image: image.url
+        }
+    }, { new: true }).select("-password -refreshToken")
+
+    if (oldImage) {
+        await deleteFromCloudinary(oldImage)
+    }
+    return res.status(200).json(new ApiResponse(200, user, "Image Updated Successfully"))
+})
+
+export {
+    registerUser,
+    loginUser,
+    logoutUser,
+    refreshAccessToken,
+    getCurrentUserProfile,
+    changeCurrentPassword,
+    updateUserProfile,
+    updateUserProfilePicture,
+} 

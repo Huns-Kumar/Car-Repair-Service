@@ -2,11 +2,13 @@ import mongoose from "mongoose";
 
 const shopSchema = new mongoose.Schema({
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Reference to the User who is a shop owner
-    shopName: { type: String, required: true },
-    location: {
-      type: { type: String, enum: ['Point'], required: true },
-      coordinates: { type: [Number], required: true } // [longitude, latitude]
-    },
+    shopName: { type: String, required: true, unique: true },
+    shopImage: {type: String},
+    // location: {
+    //   type: { type: String, enum: ['Point'], required: true },
+    //   coordinates: { type: [Number], required: true } // [longitude, latitude]
+    // },
+    shopAddress: {type: mongoose.Schema.Types.ObjectId, ref: 'Address', required: true},
     servicesOffered: [{ type: String, required: true }], // e.g., ['Engine Repair', 'Tire Replacement']
     numberOfWorkers: { type: Number, required: true },
     operatingTime: {
